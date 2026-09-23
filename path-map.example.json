@@ -1,0 +1,38 @@
+{
+  "homes": {
+    "windows": "C:\\Users\\WINDOWS_USER",
+    "mac": "/Users/MAC_USER"
+  },
+  "roots": [
+    {
+      "windows": "C:\\Users\\WINDOWS_USER\\Projects",
+      "mac": "/Users/MAC_USER/Projects",
+      "kind": "folder"
+    },
+    {
+      "windows": "D:\\work",
+      "mac": "/Users/MAC_USER/work",
+      "kind": "folder"
+    }
+  ],
+  "workspaces": [
+    {
+      "windows": "C:\\Users\\WINDOWS_USER\\Projects\\platform.code-workspace",
+      "mac": "/Users/MAC_USER/Projects/platform.code-workspace"
+    }
+  ],
+  "tools": {
+    "python": "/usr/bin/python3",
+    "intellij": "/Applications/IntelliJ IDEA.app"
+  },
+  "profiles": {
+    "ide_user_dir": "/Users/MAC_USER/Library/Application Support/Antigravity IDE/User",
+    "ide_dot_dir": "/Users/MAC_USER/.antigravity-ide",
+    "ide_gemini_dir": "/Users/MAC_USER/.gemini/antigravity-ide",
+    "app_user_dir": "/Users/MAC_USER/Library/Application Support/Antigravity/User",
+    "app_dot_dir": "/Users/MAC_USER/.antigravity",
+    "app_gemini_dir": "/Users/MAC_USER/.gemini/antigravity",
+    "gemini_home": "/Users/MAC_USER/.gemini",
+    "cli_dir": "/Users/MAC_USER/.gemini/antigravity-cli"
+  }
+}

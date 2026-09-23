@@ -1,0 +1,18 @@
+This folder is named antigravity_mac_migrate. It is the inner code folder.
+
+You are one level too deep.
+
+Go up to the parent folder. In the parent, these files sit side by side with this folder:
+
+- START-HERE.txt
+- README.md
+- pyproject.toml
+- migrate.sh
+
+migrate.sh is not inside this folder. Run the commands from START-HERE.txt in the parent folder.
+
+The command you will type uses this folder's name, with underscores:
+
+python3 -m antigravity_mac_migrate
+
+There is no folder called antigravity-mac-migrate.

@@ -1,0 +1,24 @@
+[project]
+name = "antigravity-mac-migrate"
+version = "1.0.0"
+description = "Remap copied Windows Antigravity IDE and Antigravity 2.0 profiles onto macOS."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+[project.scripts]
+antigravity-mac-migrate = "antigravity_mac_migrate.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["antigravity_mac_migrate*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
