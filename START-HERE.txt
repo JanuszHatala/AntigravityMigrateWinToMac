@@ -3,6 +3,7 @@ Quit Antigravity IDE and Antigravity 2.0 first.
 What each tree is, what to skip, and the hand-copy table are in README.md under "Copy from Windows to the Mac".
 
 On Windows, from any folder. The path after -File is this repo's script, not your profile:
+Note: -NoProfile and -ExecutionPolicy Bypass are for powershell.exe, not the export script. The script's -Profile (ide, app, gemini, cli) is a separate parameter.
 
 powershell -NoProfile -ExecutionPolicy Bypass -File C:\path\to\AntigravityMigrateWinToMac\scripts\Export-AntigravityWindows.ps1 -OutputZip C:\Users\WINDOWS_USER\Desktop\antigravity-migrate.zip -Also D:\work
 

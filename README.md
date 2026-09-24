@@ -22,8 +22,13 @@ Run either script from any working directory. Profile paths come from `%APPDATA%
 
 On Windows:
 
+`-NoProfile` and `-ExecutionPolicy Bypass` are switches for `powershell.exe` (skip your PowerShell profile and allow this one-off script run). They are not the export script's `-Profile` parameter (`ide`, `app`, `gemini`, or `cli`).
+
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File C:\path\to\AntigravityMigrateWinToMac\scripts\Export-AntigravityWindows.ps1 -OutputZip C:\Users\WINDOWS_USER\Desktop\antigravity-migrate.zip -Also D:\work
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File C:\path\to\AntigravityMigrateWinToMac\scripts\Export-AntigravityWindows.ps1 `
+  -OutputZip C:\Users\WINDOWS_USER\Desktop\antigravity-migrate.zip `
+  -Also D:\work
 ```
 
 | Parameter | Meaning |
