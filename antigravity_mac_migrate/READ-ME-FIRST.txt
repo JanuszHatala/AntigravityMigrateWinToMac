@@ -9,7 +9,7 @@ Go up to the parent folder. In the parent, these files sit side by side with thi
 - pyproject.toml
 - migrate.sh
 
-migrate.sh is not inside this folder. Run the commands from START-HERE.txt in the parent folder.
+migrate.sh is not inside this folder. The first step is copying the Windows trees onto the Mac, before you run the tool. What to copy and where is in the parent README.md under "Copy from Windows to the Mac". Run the commands from START-HERE.txt in the parent folder.
 
 The command you will type uses this folder's name, with underscores:
 
