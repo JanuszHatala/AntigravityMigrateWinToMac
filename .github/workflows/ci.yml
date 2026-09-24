@@ -21,6 +21,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install PowerShell
+        run: |
+          curl -fsSL -o /tmp/powershell.tar.gz -L https://github.com/PowerShell/PowerShell/releases/download/v7.4.12/powershell-7.4.12-linux-x64.tar.gz
+          mkdir -p "$HOME/pwsh"
+          tar -xzf /tmp/powershell.tar.gz -C "$HOME/pwsh"
+          chmod +x "$HOME/pwsh/pwsh"
+          echo "$HOME/pwsh" >> "$GITHUB_PATH"
       - name: Install package and test dependencies
         run: pip install -e ".[dev]"
       - name: Run tests

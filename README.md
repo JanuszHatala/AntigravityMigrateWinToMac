@@ -1,8 +1,8 @@
 # AntigravityMigrateWinToMac
 
-Point Antigravity IDE and Antigravity 2.0 data you copied from Windows at the folders you use on macOS: conversations, rules, skills, settings, and workspaces.
+Point Antigravity IDE and Antigravity 2.0 data from Windows at the folders you use on macOS: conversations, rules, skills, settings, and workspaces.
 
-You copy the files. This tool only rewrites paths in that copy. Sign in on the Mac for auth. Login does not bring chat history across.
+`scripts/Export-AntigravityWindows.ps1` and `scripts/import-antigravity-mac.sh` copy those trees. This tool only rewrites paths in that copy. Sign in on the Mac for auth. Login does not bring chat history across.
 
 The two apps stay separate. The editor's data directory is `Antigravity IDE`. The newer app's data directory is `Antigravity`. They share `~/.gemini`. Protobuf `.pb` conversation files stay byte-identical. A Windows `Antigravity` folder is never imported into the IDE.
 
@@ -14,9 +14,53 @@ Placeholders in the commands: `C:\Users\WINDOWS_USER` and `/Users/MAC_USER`. Rep
 
 ## Copy from Windows to the Mac
 
-On Windows, quit Antigravity IDE and Antigravity 2.0. Check Task Manager so neither process is still running. Copy each tree that exists. Skip a tree that is not there.
+Quit Antigravity IDE and Antigravity 2.0 on the PC. Check Task Manager so neither process is still running. Copy each tree that exists, then run preview and apply below. The table in this section is the same map if you copy by hand.
 
-On the Mac, if a destination already exists, move that whole folder aside first (for example `Antigravity IDE.mac-before-migrate`). Then place the Windows copy at the destination. Do not paste a Windows tree on top of a live Mac profile. Do not merge `Antigravity` into `Antigravity IDE`.
+### Scripts
+
+Run either script from any working directory. Profile paths come from `%APPDATA%`, `%USERPROFILE%`, and `$HOME`, not from the folder that contains the script. The scripts copy bytes. They do not rewrite paths, and `.pb` files stay byte-identical.
+
+On Windows:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\path\to\AntigravityMigrateWinToMac\scripts\Export-AntigravityWindows.ps1 -OutputZip C:\Users\WINDOWS_USER\Desktop\antigravity-migrate.zip -Also D:\work
+```
+
+| Parameter | Meaning |
+| --- | --- |
+| `-OutputZip` | Required absolute path of the zip. A relative path is refused. Also required with `-DryRun`. |
+| `-Profile` | `ide`, `app`, `gemini`, or `cli`. Repeat to select more than one. Default: every one of those trees that exists. |
+| `-Also` | Extra absolute Windows folders, usually repositories. Repeat for another folder. The script does not search for repositories. |
+| `-WindowsHome` | Profile root when it is not `%USERPROFILE%`. Dot folders are read from here. Roaming is then `WindowsHome\AppData\Roaming`. |
+| `-DryRun` | Print each tree and the cache paths left out. The zip is not written. |
+
+Drop `-Also` when every repository sits under the Windows profile. The CLI folder is included only when it exists. `Antigravity IDE`, `Antigravity`, shared `.gemini` (`GEMINI.md` and `config`), and the CLI stay separate zip trees. IDE data is not written into the 2.0 tree, or the reverse.
+
+The zip starts with `manifest.json`: profile id, Windows source, path inside the zip, and the Mac path relative to the home directory. Extra `-Also` folders are stored under `also/` with no Mac path.
+
+Copy the zip to the Mac. `python3` is required (the same interpreter as preview).
+
+```bash
+bash /path/to/AntigravityMigrateWinToMac/scripts/import-antigravity-mac.sh --zip /Users/MAC_USER/Desktop/antigravity-migrate.zip
+```
+
+| Parameter | Meaning |
+| --- | --- |
+| `--zip` | Required absolute path of the zip. |
+| `--profile` | `ide`, `app`, `gemini`, or `cli`. Repeat to select more than one. Default: every profile in the manifest. |
+| `-n`, `--dry-run` | Print the planned copies. Writes nothing under `$HOME`. |
+| `--move-aside` | If a destination already exists, rename that whole folder or file to `name.mac-before-migrate`, then place the Windows copy. |
+| `--also-to ID=ABSOLUTE_PATH` | Place one `also/` folder at that exact path. `ID` is `also-1`, `also-2`, and so on, in the `-Also` order. |
+
+If a destination already exists and you omit `--move-aside`, the script exits and leaves the Mac files alone. It does not copy into a live folder.
+
+`-Also` folders are left in the zip. The script prints the Windows path and the `also/<n>` path. Copy those repositories to the Mac folders you want, then pass the same pair to preview as `--also 'D:\work=/Users/MAC_USER/work'`. `--also-to` uses only a path you type. There is no default Projects folder.
+
+Quit both apps on the Mac before import. They both write `~/.gemini`.
+
+### Copy by hand
+
+If a destination already exists, move that whole folder aside first (for example `Antigravity IDE.mac-before-migrate`). Then place the Windows copy at the destination. Do not paste a Windows tree on top of a live Mac profile. Do not merge `Antigravity` into `Antigravity IDE`.
 
 After the 2.0 split, the name `Antigravity` belongs to the newer app. A Windows `Antigravity` folder can hold old editor data, 2.0 data, or both. This tool does not guess. It pairs `Antigravity` with the 2.0 app and `Antigravity IDE` with the IDE.
 
@@ -47,6 +91,8 @@ Do not open a copied repository in either app until after apply. Opening a folde
 - `Cache`, `CachedData`, `Code Cache`, `GPUCache`, `logs`, `Crashpad`, `Service Worker`, `blob_storage`, `CachedExtensionVSIXs`
 - Cookies, Session Storage, and other safeStorage blobs. Windows DPAPI ciphertext will not decrypt on the Mac. Sign in again. This tool does not decrypt it.
 - LocalAppData install directories. Those are the apps, not the profile. Install both apps on the Mac from the official builds.
+
+The export script skips those directory names inside the Antigravity trees, plus files named `Cookies` and `Cookies-journal`. A directory named `logs` under `.gemini` is kept, because CLI transcripts live in `.system_generated/logs`. `-Also` folders are copied whole. A path under LocalAppData is refused. Install directories are not zipped.
 
 ## Check each placement
 
@@ -80,7 +126,7 @@ Put this tool folder anywhere on the Mac. It is the folder that contains `START-
 ```bash
 git clone https://github.com/JanuszHatala/AntigravityMigrateWinToMac.git
 cd AntigravityMigrateWinToMac
-ls START-HERE.txt README.md pyproject.toml migrate.sh antigravity_mac_migrate
+ls START-HERE.txt README.md pyproject.toml migrate.sh scripts antigravity_mac_migrate
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install -e ".[dev]"
@@ -195,7 +241,7 @@ python3 -m antigravity_mac_migrate mac-cmd-keybindings
 
 ## What this version does not do
 
-No GUI. No Linux paths. No copy from Windows. No safeStorage decrypt. No `.pb` patch. No merge of two live profiles. No edit of an installed `workbench.desktop.main.js`. No automatic import of a Windows `Antigravity` folder into the IDE.
+No GUI. No Linux paths. No safeStorage decrypt. No `.pb` patch. No merge of two live profiles. No edit of an installed `workbench.desktop.main.js`. No automatic import of a Windows `Antigravity` folder into the IDE. The Python commands only rewrite. Copying is the scripts above, or the hand-copy table.
 
 ## Troubleshooting
 

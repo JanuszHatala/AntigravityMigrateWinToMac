@@ -1,16 +1,36 @@
-First step: copy the Windows trees onto the Mac, before you run this tool.
-What to copy, what to skip, and where each tree goes is in README.md under "Copy from Windows to the Mac".
-Check each placement with the commands in README.md under "Check each placement".
+First step: copy the Windows trees onto the Mac with the scripts, then run this tool.
+Quit Antigravity IDE and Antigravity 2.0 first.
+What each tree is, what to skip, and the hand-copy table are in README.md under "Copy from Windows to the Mac".
+
+On Windows, from any folder. The path after -File is this repo's script, not your profile:
+
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\path\to\AntigravityMigrateWinToMac\scripts\Export-AntigravityWindows.ps1 -OutputZip C:\Users\WINDOWS_USER\Desktop\antigravity-migrate.zip -Also D:\work
+
+-OutputZip is required and must be an absolute path. -DryRun lists the zip and does not write it.
+Drop -Also when you have no folder outside the Windows profile. D:\work is an example. Any absolute folder is fine.
+-Profile ide, app, gemini, or cli limits the trees. The default is every one of those trees that exists.
+The CLI tree is included only when its folder exists.
+Parameter details are in README.md under "Scripts".
+
+Copy the zip to the Mac. From any folder:
+
+bash /path/to/AntigravityMigrateWinToMac/scripts/import-antigravity-mac.sh --zip /Users/MAC_USER/Desktop/antigravity-migrate.zip
+
+Add --move-aside if a destination is already there. The script renames that whole folder to name.mac-before-migrate and then places the Windows copy.
+Without that flag it stops, so it never copies into a live Mac profile. -n prints the plan and writes nothing.
+Extra -Also folders stay in the zip. The script prints them and does not pick a Projects folder.
+Copy those yourself, then use --also on the preview command below. Check each placement with the commands in README.md under "Check each placement".
 
 You are in the right folder when this file sits next to a folder named antigravity_mac_migrate.
 Do not open antigravity_mac_migrate to run anything. That inner folder is only the program code.
-migrate.sh is in this same folder, beside antigravity_mac_migrate.
+migrate.sh is in this same folder, beside antigravity_mac_migrate. The copy scripts are in scripts.
 
 Put this whole folder anywhere on the Mac. Open Terminal, cd into it, and confirm these names are on one list:
   START-HERE.txt
   README.md
   pyproject.toml
   migrate.sh
+  scripts
   antigravity_mac_migrate
 
 Then paste:
@@ -29,4 +49,4 @@ Then, with both apps still quit:
 python3 -m antigravity_mac_migrate auto --windows-home 'C:\Users\WINDOWS_USER' --mac-home /Users/MAC_USER --also 'D:\work=/Users/MAC_USER/work' --renames migrate-work/antigravity-migrate-rename.txt --drop migrate-work/antigravity-migrate-drop.txt --apply
 
 How to check that apply worked is in README.md under "Check that apply worked".
-If a destination folder already exists on the Mac, move that whole folder aside before you place the Windows copy. This tool rewrites the copy. It does not merge a live Mac profile.
+The import script places each Windows tree on its own. This tool rewrites that copy. It does not merge a live Mac profile.
