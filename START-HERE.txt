@@ -26,14 +26,14 @@ source .venv/bin/activate
 python3 -m pip install -e ".[dev]"
 python3 -m antigravity_mac_migrate auto --windows-home 'C:\Users\WINDOWS_USER' --mac-home /Users/MAC_USER --also 'D:\work=/Users/MAC_USER/work'
 
-That preview does not change either app. It writes lists on the Desktop.
-Copy wanted lines from antigravity-migrate-rename-suggested.txt into antigravity-migrate-rename.txt.
-Put workspace paths you do not want attached into antigravity-migrate-drop.txt, one Windows path per line.
-Leave antigravity-migrate-keep.txt alone. Those are missing copies, worktrees, and Antigravity internal folders.
-antigravity-migrate-pb.txt lists protobuf conversation files. This version does not modify them.
+That preview does not change either app. It writes lists in the migrate-work folder inside this tool folder.
+Copy wanted lines from migrate-work/antigravity-migrate-rename-suggested.txt into migrate-work/antigravity-migrate-rename.txt.
+Put workspace paths you do not want attached into migrate-work/antigravity-migrate-drop.txt, one Windows path per line.
+Leave migrate-work/antigravity-migrate-keep.txt alone. Those are missing copies, worktrees, and Antigravity internal folders.
+migrate-work/antigravity-migrate-pb.txt lists protobuf conversation files. This version does not modify them.
 
 Then, with both apps still quit:
 
-python3 -m antigravity_mac_migrate auto --windows-home 'C:\Users\WINDOWS_USER' --mac-home /Users/MAC_USER --also 'D:\work=/Users/MAC_USER/work' --renames "$HOME/Desktop/antigravity-migrate-rename.txt" --drop "$HOME/Desktop/antigravity-migrate-drop.txt" --apply
+python3 -m antigravity_mac_migrate auto --windows-home 'C:\Users\WINDOWS_USER' --mac-home /Users/MAC_USER --also 'D:\work=/Users/MAC_USER/work' --renames migrate-work/antigravity-migrate-rename.txt --drop migrate-work/antigravity-migrate-drop.txt --apply
 
 Replace WINDOWS_USER and MAC_USER with your real account names. If a destination folder already exists on the Mac, move that whole folder aside before you copy the Windows tree into place. This tool rewrites the copy. It does not merge a live Mac profile.

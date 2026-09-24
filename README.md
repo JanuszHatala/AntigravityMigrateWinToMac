@@ -45,7 +45,7 @@ C:\Users\WINDOWS_USER\Projects\...           /Users/MAC_USER/Projects/...       
 
 1. On Windows: quit both apps, copy the trees below.
 2. On the Mac: if a destination folder already exists, move that whole folder aside (for example `Antigravity IDE.mac-before-migrate`). Then place the Windows copy at the destination. Do not paste a Windows tree on top of a live Mac profile.
-3. Preview (`auto` without `--apply`): writes Desktop reports. Edit the rename and drop files.
+3. Preview (`auto` without `--apply`): writes reports into `migrate-work/` inside this tool folder; edit the rename and drop files there.
 4. Apply (`auto` with `--apply`): rewrites ready paths and accepted renames. Everything in keep stays unchanged. Both apps must be quit, even if you only select one profile.
 
 Do not open a migrated repo in either app until after apply. Opening a folder first creates an empty `workspaceStorage` id, and the relink will not overwrite it.
@@ -123,7 +123,7 @@ python3 -m antigravity_mac_migrate auto \
 
 Missing trees print a warning and do not fail the run. A machine with only one app still previews. Limit the scan with `--profile ide`, `--profile app`, `--profile gemini`, or `--profile cli` (repeat the flag to select more than one). The default is every copied tree that exists. `~/.gemini/antigravity-cli` is included only when that folder was copied.
 
-Reports land on the Desktop:
+This scans copied SQLite databases and config files, then writes reports into `migrate-work/` next to this tool (override with `--report-dir`):
 
 | File | Meaning | You edit it? |
 | --- | --- | --- |
@@ -165,8 +165,8 @@ python3 -m antigravity_mac_migrate auto \
   --windows-home 'C:\Users\WINDOWS_USER' \
   --mac-home /Users/MAC_USER \
   --also 'D:\work=/Users/MAC_USER/work' \
-  --renames "$HOME/Desktop/antigravity-migrate-rename.txt" \
-  --drop "$HOME/Desktop/antigravity-migrate-drop.txt" \
+  --renames migrate-work/antigravity-migrate-rename.txt \
+  --drop migrate-work/antigravity-migrate-drop.txt \
   --apply
 ```
 
@@ -225,8 +225,8 @@ python3 -m antigravity_mac_migrate auto \
   --also 'D:\work=/Users/MAC_USER/work'
 
 python3 -m antigravity_mac_migrate auto ... \
-  --renames ~/Desktop/antigravity-migrate-rename.txt \
-  --drop ~/Desktop/antigravity-migrate-drop.txt \
+  --renames migrate-work/antigravity-migrate-rename.txt \
+  --drop migrate-work/antigravity-migrate-drop.txt \
   --apply
 
 python3 -m antigravity_mac_migrate verify

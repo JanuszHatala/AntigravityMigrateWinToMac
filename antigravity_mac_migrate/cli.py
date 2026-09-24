@@ -21,6 +21,7 @@ from antigravity_mac_migrate.lock import assert_apps_closed
 from antigravity_mac_migrate.mapping import dump_path_map, load_path_map, missing_mac_targets
 from antigravity_mac_migrate.profiles import resolve_profiles
 from antigravity_mac_migrate.skills import list_skills
+from antigravity_mac_migrate.workdir import default_report_dir
 
 READY = "antigravity-migrate-ready.txt"
 RENAME_SUGGESTED = "antigravity-migrate-rename-suggested.txt"
@@ -67,6 +68,12 @@ def main(argv: list[str] | None = None) -> int:
     auto_p.add_argument("--renames", type=Path, default=None, help=f"Edited {RENAME}")
     auto_p.add_argument("--drop", type=Path, default=None, help="Windows workspace paths to leave unattached")
     auto_p.add_argument("--allow-running", action="store_true")
+    auto_p.add_argument(
+        "--report-dir",
+        type=Path,
+        default=None,
+        help="Folder for antigravity-migrate-*.txt. Default: migrate-work next to this tool.",
+    )
 
     scan_p = sub.add_parser("scan", help="Find Windows paths still stored in the copied profiles")
     _add_common(scan_p)
@@ -101,6 +108,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     _add_common(verify_p)
     verify_p.add_argument("--map", type=Path, required=False)
+    verify_p.add_argument(
+        "--report-dir",
+        type=Path,
+        default=None,
+        help="Folder for antigravity-migrate-still-windows.txt. Default: migrate-work next to this tool.",
+    )
 
     ext_p = sub.add_parser(
         "reinstall-native-extensions",
@@ -151,6 +164,12 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _report_dir(value: Path | None) -> Path:
+    path = value.expanduser() if value is not None else default_report_dir()
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def _home(args: argparse.Namespace) -> Path:
     if getattr(args, "home", None):
         return Path(args.home).expanduser()
@@ -174,8 +193,7 @@ def cmd_auto(args: argparse.Namespace) -> int:
         print("No copied Antigravity trees were found. Nothing was changed.")
         return 0
 
-    desktop = Path(mac_home) / "Desktop"
-    desktop.mkdir(parents=True, exist_ok=True)
+    reports = _report_dir(args.report_dir)
     print("Reading the copied Antigravity data. This can take a minute. Nothing is printed until it finishes.")
     scan = scan_profiles(selection.profiles)
     intellij = args.intellij if args.intellij else None
@@ -196,12 +214,12 @@ def cmd_auto(args: argparse.Namespace) -> int:
         extra_prefixes=extra,
         profiles=selection.profiles,
     )
-    (desktop / PATH_MAP_NAME).write_text(
+    (reports / PATH_MAP_NAME).write_text(
         json.dumps(dump_path_map(plan.path_map, home), indent=2) + "\n",
         encoding="utf-8",
     )
-    _write_lines(desktop / READY, plan.ready)
-    (desktop / RENAME_SUGGESTED).write_text(
+    _write_lines(reports / READY, plan.ready)
+    (reports / RENAME_SUGGESTED).write_text(
         "\n".join(
             [
                 f"# Suggested renames. Copy a line into {RENAME} to accept it.",
@@ -212,14 +230,14 @@ def cmd_auto(args: argparse.Namespace) -> int:
         + "\n",
         encoding="utf-8",
     )
-    rename_file = desktop / RENAME
+    rename_file = reports / RENAME
     if not rename_file.exists():
         rename_file.write_text(
             "# Accepted renames. One Windows path=Mac path per line.\n",
             encoding="utf-8",
         )
-    _write_lines(desktop / MISSING, plan.missing)
-    (desktop / KEEP).write_text(
+    _write_lines(reports / MISSING, plan.missing)
+    (reports / KEEP).write_text(
         "\n".join(
             [
                 "# Left untouched. Copy a [not-copied] folder to the Mac path, then run the preview again.",
@@ -230,13 +248,13 @@ def cmd_auto(args: argparse.Namespace) -> int:
         + "\n",
         encoding="utf-8",
     )
-    _write_lines(desktop / OUTSIDE, plan.outside_home)
-    if not (desktop / DROP).exists():
-        (desktop / DROP).write_text(
+    _write_lines(reports / OUTSIDE, plan.outside_home)
+    if not (reports / DROP).exists():
+        (reports / DROP).write_text(
             "# One Windows path per line. These workspace entries are not attached.\n",
             encoding="utf-8",
         )
-    (desktop / PB).write_text(
+    (reports / PB).write_text(
         "\n".join(
             [
                 "# Protobuf conversation files. v1 leaves these byte-identical.",
@@ -246,7 +264,7 @@ def cmd_auto(args: argparse.Namespace) -> int:
         + "\n",
         encoding="utf-8",
     )
-    (desktop / SKIPPED).write_text(
+    (reports / SKIPPED).write_text(
         "\n".join(
             [
                 "# SQLite cells that are not valid UTF-8. They were not rewritten.",
@@ -270,13 +288,13 @@ def cmd_auto(args: argparse.Namespace) -> int:
     print(f"Protobuf .pb files left byte-identical: {len(scan.protobuf_files)}")
     print(f"Binary SQLite cells left unchanged: {len(scan.skipped_binary)}")
     print()
-    print("On the Desktop:")
+    print(f"Reports ({reports}):")
     for name in (READY, RENAME_SUGGESTED, RENAME, KEEP, DROP, MISSING, OUTSIDE, PB, SKIPPED, PATH_MAP_NAME):
-        print(f"  {desktop / name}")
+        print(f"  {reports / name}")
 
     if not args.apply:
         print()
-        print(f"Edit {RENAME} and {DROP} on the Desktop.")
+        print(f"Edit {reports / RENAME} and {reports / DROP}.")
         print("Then run the same command again with --renames, --drop, and --apply.")
         print(f"Projects in {KEEP} are not touched.")
         return 0
@@ -297,13 +315,13 @@ def cmd_auto(args: argparse.Namespace) -> int:
         skip_missing=True,
         rewrite_roots=plan.path_map.roots,
     )
-    report_path = desktop / REPORT
+    report_path = reports / REPORT
     write_report(report, report_path)
     attached = [item for item in report.relink.items if item.status in {"renamed", "unchanged-id"}]
     not_attached = [
         item for item in report.relink.items if item.status not in {"renamed", "unchanged-id", "skip"}
     ]
-    (desktop / NOT_ATTACHED).write_text(
+    (reports / NOT_ATTACHED).write_text(
         "\n".join(
             f"{item.status}\t{item.windows_uri}\t{item.mac_path}\t{item.detail}"
             for item in not_attached
@@ -316,14 +334,14 @@ def cmd_auto(args: argparse.Namespace) -> int:
     print(f"Workspace storage entries attached to a Mac folder: {len(attached)}")
     print(f"Workspace storage entries left unattached: {len(not_attached)}")
     if not_attached:
-        print(f"  See {desktop / NOT_ATTACHED}")
+        print(f"  See {reports / NOT_ATTACHED}")
     print(f"Text files updated: {len(report.files)}")
     print(f"SQLite databases with rewritten text: {len(report.sqlite)}")
     print(f"Protobuf .pb files left byte-identical: {len(report.protobuf_files)}")
     print(f"Binary SQLite cells left unchanged: {len(report.skipped_binary)}")
     if report.skipped_binary:
         print("  Those cells still hold their original bytes. A sidebar index stored as protobuf was not remapped.")
-        print(f"  See {desktop / SKIPPED}")
+        print(f"  See {reports / SKIPPED}")
     print(f"Skills: {len(report.skills)}")
     print()
     print("Sign in on the Mac for auth only. Chat history is local and is not synced by login.")
@@ -483,13 +501,12 @@ def cmd_verify(args: argparse.Namespace) -> int:
     print(f"Windows paths still stored in text or SQLite: {len(leftover)}")
     status = 0
     if leftover:
-        desktop = home / "Desktop" / STILL
-        desktop.parent.mkdir(parents=True, exist_ok=True)
-        desktop.write_text(
+        still = _report_dir(args.report_dir) / STILL
+        still.write_text(
             "\n".join(f"{count}\t{path}" for path, count in leftover.most_common()) + "\n",
             encoding="utf-8",
         )
-        print(f"  The list is in {desktop}")
+        print(f"  The list is in {still}")
         print("  It is not printed here.")
         status = 1
     else:

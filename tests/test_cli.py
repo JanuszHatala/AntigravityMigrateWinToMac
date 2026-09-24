@@ -2,8 +2,22 @@ import inspect
 
 import pytest
 
-from antigravity_mac_migrate.cli import main
+from antigravity_mac_migrate.cli import (
+    DROP,
+    KEEP,
+    MISSING,
+    OUTSIDE,
+    PATH_MAP_NAME,
+    PB,
+    READY,
+    RENAME,
+    RENAME_SUGGESTED,
+    SKIPPED,
+    STILL,
+    main,
+)
 from antigravity_mac_migrate.lock import assert_apps_closed, is_antigravity_process
+from antigravity_mac_migrate.workdir import default_report_dir, tool_root
 
 
 def test_unrelated_macos_service_is_not_an_antigravity_app():
@@ -25,6 +39,73 @@ def test_unrelated_macos_service_is_not_an_antigravity_app():
 
 def test_lock_always_covers_both_apps():
     assert "profile" not in inspect.signature(assert_apps_closed).parameters
+
+
+def test_reports_live_next_to_the_tool_not_on_the_desktop():
+    root = tool_root()
+    assert (root / "pyproject.toml").is_file()
+    assert default_report_dir() == root / "migrate-work"
+    assert default_report_dir().name != "Desktop"
+
+
+def test_auto_and_verify_write_reports_beside_the_tool(tmp_path, monkeypatch, capsys):
+    home = tmp_path / "copied"
+    user = home / "Library" / "Application Support" / "Antigravity IDE" / "User"
+    user.mkdir(parents=True)
+    (user / "settings.json").write_text(
+        "cwd=C:\\Users\\WINDOWS_USER\\Projects\\api\n",
+        encoding="utf-8",
+    )
+    mac = tmp_path / "mac"
+    mac.mkdir()
+    reports = tmp_path / "migrate-work"
+    monkeypatch.setattr("antigravity_mac_migrate.cli.default_report_dir", lambda: reports)
+    code = main(
+        [
+            "auto",
+            "--windows-home",
+            r"C:\Users\WINDOWS_USER",
+            "--mac-home",
+            str(mac),
+            "--home",
+            str(home),
+            "--profile",
+            "ide",
+        ]
+    )
+    assert code == 0
+    written = {
+        READY,
+        RENAME_SUGGESTED,
+        RENAME,
+        KEEP,
+        DROP,
+        MISSING,
+        OUTSIDE,
+        PB,
+        SKIPPED,
+        PATH_MAP_NAME,
+    }
+    assert written <= {path.name for path in reports.iterdir()}
+    assert not (mac / "Desktop").exists()
+    output = capsys.readouterr().out
+    assert f"Reports ({reports})" in output
+    assert "On the Desktop" not in output
+
+    verify_code = main(
+        [
+            "verify",
+            "--home",
+            str(home),
+            "--profile",
+            "ide",
+        ]
+    )
+    assert verify_code == 1
+    still = reports / STILL
+    assert still.is_file()
+    assert r"C:\Users\WINDOWS_USER" in still.read_text(encoding="utf-8")
+    assert not (home / "Desktop").exists()
 
 
 def test_help_exits_zero():
