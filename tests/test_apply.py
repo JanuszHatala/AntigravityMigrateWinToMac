@@ -366,6 +366,88 @@ def test_non_itemtable_sqlite_is_rewritten_and_pb_stays_byte_identical(tmp_path:
     assert "C:\\Users" not in (gemini / "note.md").read_text(encoding="utf-8")
 
 
+def test_home_prefix_rewrites_strings_without_attaching_other_workspaces(tmp_path: Path):
+    mac_home = tmp_path / "mac"
+    ready = mac_home / "Projects" / "api"
+    other = mac_home / "other" / "repo"
+    ready.mkdir(parents=True)
+    other.mkdir(parents=True)
+    user_dir = tmp_path / "User"
+    (user_dir / "settings.json").parent.mkdir(parents=True)
+    (user_dir / "settings.json").write_text(
+        json.dumps({"notes": r"C:\Users\WINDOWS_USER\Documents\notes"}),
+        encoding="utf-8",
+    )
+    old_id = "otherotherotherotherotherotherot"
+    storage = user_dir / "workspaceStorage" / old_id
+    storage.mkdir(parents=True)
+    (storage / "workspace.json").write_text(
+        json.dumps({"folder": windows_to_file_uri(r"C:\Users\WINDOWS_USER\other\repo")}),
+        encoding="utf-8",
+    )
+    narrow = PathMap(
+        roots=[RootMap(r"C:\Users\WINDOWS_USER\Projects\api", str(ready), "folder")],
+        profiles=[_profile("ide", user_dir)],
+    )
+    report = apply_map(
+        narrow,
+        skip_missing=True,
+        rewrite_roots=[RootMap(r"C:\Users\WINDOWS_USER", str(mac_home), "folder")],
+    )
+    settings = json.loads((user_dir / "settings.json").read_text(encoding="utf-8"))
+    assert settings["notes"] == str(mac_home / "Documents" / "notes")
+    assert storage.is_dir()
+    assert all(item.status != "renamed" for item in report.relink.items)
+
+
+def test_nested_code_workspace_inside_mapped_folder_is_rewritten(tmp_path: Path):
+    work = tmp_path / "work"
+    repo = work / "api"
+    repo.mkdir(parents=True)
+    workspace = repo / "platform.code-workspace"
+    workspace.write_text(
+        json.dumps({"folders": [{"path": "d:/work/api"}, {"path": "/D:/work/web"}]}),
+        encoding="utf-8",
+    )
+    original_pb = b"\x00\x01D:\\work\\api\xffprotobuf"
+    (repo / "chat.pb").write_bytes(original_pb)
+    user_dir = tmp_path / "User"
+    user_dir.mkdir()
+    path_map = PathMap(roots=[], profiles=[_profile("ide", user_dir)])
+    apply_map(
+        path_map,
+        skip_missing=True,
+        rewrite_roots=[RootMap(r"D:\work", str(work), "folder")],
+    )
+    data = json.loads(workspace.read_text(encoding="utf-8"))
+    assert data["folders"][0]["path"] == str(repo)
+    assert data["folders"][1]["path"] == str(work / "web")
+    assert (repo / "chat.pb").read_bytes() == original_pb
+
+
+def test_installed_extension_packages_are_not_rewritten(tmp_path: Path):
+    user_dir = tmp_path / "User"
+    user_dir.mkdir()
+    (user_dir / "settings.json").write_text(
+        json.dumps({"terminal.integrated.cwd": r"C:\Users\WINDOWS_USER\Projects\api"}),
+        encoding="utf-8",
+    )
+    package = tmp_path / "dot" / "extensions" / "publisher.tool" / "package.json"
+    package.parent.mkdir(parents=True)
+    original = json.dumps({"path": r"C:\Users\WINDOWS_USER\Projects\api"})
+    package.write_text(original, encoding="utf-8")
+    repo = tmp_path / "api"
+    repo.mkdir()
+    path_map = PathMap(
+        roots=[RootMap(r"C:\Users\WINDOWS_USER\Projects", str(tmp_path), "folder")],
+        profiles=[_profile("ide", user_dir, dot=tmp_path / "dot")],
+    )
+    apply_map(path_map, skip_missing=True)
+    assert package.read_text(encoding="utf-8") == original
+    settings = json.loads((user_dir / "settings.json").read_text(encoding="utf-8"))
+    assert settings["terminal.integrated.cwd"].endswith("/api")
+
+
 def test_uuid_brain_dir_is_kept_and_encoded_dir_is_renamed(tmp_path: Path):
     brain = tmp_path / "gemini" / "brain" / "123e4567-e89b-12d3-a456-426614174000"
     brain.mkdir(parents=True)

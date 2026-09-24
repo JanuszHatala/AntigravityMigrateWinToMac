@@ -130,7 +130,7 @@ Reports land on the Desktop:
 | `antigravity-migrate-ready.txt` | Mac folder exists at the mirrored path | No |
 | `antigravity-migrate-rename-suggested.txt` | Tool guessed a different Mac folder name | Copy chosen lines into the rename file |
 | `antigravity-migrate-rename.txt` | Accepted Windows=Mac pairs | Yes |
-| `antigravity-migrate-drop.txt` | Paths to leave unchanged | Yes, one Windows path per line |
+| `antigravity-migrate-drop.txt` | Workspace entries to leave unattached | Yes, one Windows path per line |
 | `antigravity-migrate-keep.txt` | Not applied: missing copy, worktree, or internal | No |
 | `antigravity-migrate-missing.txt` | Same as `[not-copied]` lines in keep | No |
 | `antigravity-migrate-outside-home.txt` | Paths outside `--windows-home` and `--also` | Fix the mapping or ignore |
@@ -175,9 +175,11 @@ Apply rewrites, in each copied profile:
 - `settings.json`, `keybindings.json`, snippets, and profile JSON
 - UTF-8 cells in every SQLite file under the copied trees, including `state.vscdb` and per-chat `.db` files whose tables are not `ItemTable`
 - `workspaceStorage` ids when `workspace.json` has a `folder` or `workspace` URI
-- Text and JSON under the extension directory and the matching `.gemini` tree (brain markdown, `.pbtxt` annotations, skills, workflows, rules, `mcp_config.json`)
+- Text and JSON under the extension directory and the matching `.gemini` tree (brain markdown, `.pbtxt` annotations, skills, workflows, rules, `mcp_config.json`). Installed packages inside an `extensions` folder are left unchanged
 - `GEMINI.md`, `AGENTS.md`, `.agents/`, and `.agent/` inside a mapped repository
-- `.code-workspace` files that already sit at the mapped Mac path
+- `.code-workspace` files that already sit at the mapped Mac path, including ones nested inside a mapped folder
+
+String replacement uses the Windows home and every `--also` prefix, including a folder that was not an exact workspace match. `workspaceStorage` is still attached only for exact Mac folders and accepted renames. A path listed in the drop file is not attached. Text under the Windows home or an `--also` prefix is still rewritten.
 
 It does not patch `.pb` files. A path inside a protobuf step can stay wrong even when the sidebar text was rewritten. If `antigravity-migrate-skipped-binary.txt` lists a cell, that cell was left as stored. A sidebar index kept as protobuf was not remapped. Say that plainly: those chats were not rewritten.
 

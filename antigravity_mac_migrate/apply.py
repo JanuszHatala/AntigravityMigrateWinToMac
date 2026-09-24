@@ -10,12 +10,13 @@ from pathlib import Path
 from antigravity_mac_migrate.detect import scan_profiles
 from antigravity_mac_migrate.extensions import iter_extensions
 from antigravity_mac_migrate.files_rewrite import (
+    SKIP_DIR_NAMES,
     iter_protobuf_files,
     iter_repo_context_files,
     iter_text_files,
     rewrite_file,
 )
-from antigravity_mac_migrate.mapping import PathMap, missing_mac_targets
+from antigravity_mac_migrate.mapping import PathMap, RootMap, missing_mac_targets
 from antigravity_mac_migrate.profiles import ResolvedProfile
 from antigravity_mac_migrate.skills import list_skills, rename_encoded_dirs
 from antigravity_mac_migrate.sqlite_rewrite import checkpoint_and_copy, iter_sqlite_files, rewrite_db
@@ -41,6 +42,7 @@ def apply_map(
     *,
     dry_run: bool = False,
     skip_missing: bool = False,
+    rewrite_roots: list[RootMap] | None = None,
 ) -> ApplyReport:
     missing = missing_mac_targets(path_map)
     warnings = list(missing)
@@ -70,7 +72,8 @@ def apply_map(
         merged.items.extend(relink.items)
         merged.id_map.update(relink.id_map)
 
-    rewriter = path_map.rewriter(merged.id_map)
+    rewriter = _string_rewriter(path_map, rewrite_roots, merged.id_map)
+    file_roots = _file_roots(path_map, rewrite_roots)
     report = ApplyReport(
         backup_dir=backup_dirs[0] if backup_dirs else None,
         relink=merged,
@@ -96,34 +99,22 @@ def apply_map(
 
     rewritten: set[Path] = set()
     for path in _text_targets(profiles):
-        if path in rewritten or path.suffix.lower() == ".pb":
-            continue
-        rewritten.add(path)
-        stats = rewrite_file(path, rewriter, dry_run=dry_run)
-        if stats.changed:
-            report.files.append(str(path))
+        _rewrite_once(path, rewriter, rewritten, report, dry_run=dry_run)
 
-    for root in path_map.roots:
-        if root.kind == "workspace":
-            target = Path(root.mac)
-            if target.is_file() and target not in rewritten:
-                rewritten.add(target)
-                stats = rewrite_file(target, rewriter, dry_run=dry_run)
-                if stats.changed:
-                    report.files.append(str(target))
-            elif not target.exists() and not dry_run:
+    for root in file_roots:
+        base = Path(root.mac)
+        if root.kind == "workspace" or base.suffix.lower() == ".code-workspace":
+            if base.is_file():
+                _rewrite_once(base, rewriter, rewritten, report, dry_run=dry_run)
+            elif not base.exists() and not dry_run and root.kind == "workspace":
                 report.warnings.append(f"workspace file not on disk yet: {root.mac}")
             continue
-        repo = Path(root.mac)
-        if not _should_scan_repo(repo):
+        if not _should_scan_repo(base):
             continue
-        for path in iter_repo_context_files(repo):
-            if path in rewritten or path.suffix.lower() == ".pb":
-                continue
-            rewritten.add(path)
-            stats = rewrite_file(path, rewriter, dry_run=dry_run)
-            if stats.changed:
-                report.files.append(str(path))
+        for path in iter_repo_context_files(base):
+            _rewrite_once(path, rewriter, rewritten, report, dry_run=dry_run)
+        for path in _nested_workspace_files(base):
+            _rewrite_once(path, rewriter, rewritten, report, dry_run=dry_run)
 
     windows_paths = list(pre_scan.windows_paths) if pre_scan else _windows_from_map(path_map)
     if not windows_paths:
@@ -158,6 +149,72 @@ def apply_map(
                         "The 2.0 install command is not confirmed, so it was not reinstalled."
                     )
     return report
+
+
+def _file_roots(path_map: PathMap, rewrite_roots: list[RootMap] | None) -> list[RootMap]:
+    """Prefix roots used for string replacement, plus the narrow attach map.
+
+    ``rewrite_roots`` is the Windows home and ``--also`` prefixes. The narrow
+    map stays responsible for which ``workspaceStorage`` entries are moved.
+    """
+    if not rewrite_roots:
+        return list(path_map.roots)
+    return [*rewrite_roots, *path_map.roots]
+
+
+def _string_rewriter(
+    path_map: PathMap,
+    rewrite_roots: list[RootMap] | None,
+    id_map: dict[str, str],
+):
+    broader = PathMap(
+        roots=_file_roots(path_map, rewrite_roots),
+        python=path_map.python,
+        intellij=path_map.intellij,
+        profiles=list(path_map.profiles),
+    )
+    return broader.rewriter(id_map)
+
+
+def _rewrite_once(
+    path: Path,
+    rewriter,
+    rewritten: set[Path],
+    report: ApplyReport,
+    *,
+    dry_run: bool,
+) -> None:
+    if path.suffix.lower() == ".pb":
+        return
+    try:
+        key = path.resolve()
+    except OSError:
+        key = path
+    if key in rewritten:
+        return
+    rewritten.add(key)
+    stats = rewrite_file(path, rewriter, dry_run=dry_run)
+    if stats.changed:
+        report.files.append(str(path))
+
+
+def _nested_workspace_files(base: Path) -> list[Path]:
+    """``.code-workspace`` files inside a mapped folder, not the whole home."""
+    skip = set(SKIP_DIR_NAMES) | {".venv", "venv"}
+    found: list[Path] = []
+    for path in base.rglob("*"):
+        if not path.is_file() or path.suffix.lower() != ".code-workspace":
+            continue
+        if any(part in skip or "mac-migrate-backup" in part for part in path.parts):
+            continue
+        try:
+            depth = len(path.relative_to(base).parts)
+        except ValueError:
+            continue
+        if depth > 6:
+            continue
+        found.append(path)
+    return found
 
 
 def _scan_roots(profiles: list[ResolvedProfile]) -> list[Path]:

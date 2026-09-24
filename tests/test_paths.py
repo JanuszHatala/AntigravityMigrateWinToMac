@@ -25,6 +25,24 @@ def test_replacement_covers_uri_and_backslash():
     assert "Users/MAC_USER/dev" in rewriter.rewrite_string(nested).replace("\\", "/")
 
 
+def test_drive_letter_forms_and_renamed_folder():
+    pairs = replacement_pairs(r"D:\work", "/Users/MAC_USER/work")
+    pairs += replacement_pairs(
+        r"D:\work\acme\oldname",
+        "/Users/MAC_USER/work/acme/old-name",
+    )
+    rewriter = PathRewriter(pairs)
+    mac_repo = "/Users/MAC_USER/work/acme/portal"
+    assert rewriter.rewrite_string("d:/work/acme/portal") == mac_repo
+    assert rewriter.rewrite_string("D:/work/acme/portal") == mac_repo
+    assert rewriter.rewrite_string("/d:/work/acme/portal") == mac_repo
+    assert rewriter.rewrite_string("/D:/work/acme/portal") == mac_repo
+    assert (
+        rewriter.rewrite_string("d:/work/acme/oldname")
+        == "/Users/MAC_USER/work/acme/old-name"
+    )
+
+
 def test_longest_prefix_wins():
     pairs = replacement_pairs(r"C:\Users\WINDOWS_USER", "/Users/MAC_USER")
     pairs += replacement_pairs(r"C:\Users\WINDOWS_USER\dev", "/Volumes/work/dev")

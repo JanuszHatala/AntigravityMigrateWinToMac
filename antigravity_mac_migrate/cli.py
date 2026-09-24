@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     auto_p.add_argument("--intellij", default=None, help="Path ending in .app, or omit to auto-detect")
     auto_p.add_argument("--apply", action="store_true", help="Attach exact matches and accepted renames only")
     auto_p.add_argument("--renames", type=Path, default=None, help=f"Edited {RENAME}")
-    auto_p.add_argument("--drop", type=Path, default=None, help="Windows paths to leave untouched")
+    auto_p.add_argument("--drop", type=Path, default=None, help="Windows workspace paths to leave unattached")
     auto_p.add_argument("--allow-running", action="store_true")
 
     scan_p = sub.add_parser("scan", help="Find Windows paths still stored in the copied profiles")
@@ -233,7 +233,7 @@ def cmd_auto(args: argparse.Namespace) -> int:
     _write_lines(desktop / OUTSIDE, plan.outside_home)
     if not (desktop / DROP).exists():
         (desktop / DROP).write_text(
-            "# One Windows path per line. These paths are left unchanged.\n",
+            "# One Windows path per line. These workspace entries are not attached.\n",
             encoding="utf-8",
         )
     (desktop / PB).write_text(
@@ -291,7 +291,12 @@ def cmd_auto(args: argparse.Namespace) -> int:
             print(f"  {source}")
 
     assert_apps_closed(allow_running=args.allow_running)
-    report = apply_map(apply_plan, dry_run=False, skip_missing=True)
+    report = apply_map(
+        apply_plan,
+        dry_run=False,
+        skip_missing=True,
+        rewrite_roots=plan.path_map.roots,
+    )
     report_path = desktop / REPORT
     write_report(report, report_path)
     attached = [item for item in report.relink.items if item.status in {"renamed", "unchanged-id"}]

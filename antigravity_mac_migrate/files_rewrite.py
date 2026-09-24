@@ -39,6 +39,7 @@ SKIP_DIR_NAMES = {
     "blob_storage",
     "node_modules",
     ".git",
+    "extensions",
 }
 
 NAMED_TEXT_FILES = {

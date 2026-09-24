@@ -28,7 +28,7 @@ python3 -m antigravity_mac_migrate auto --windows-home 'C:\Users\WINDOWS_USER' -
 
 That preview does not change either app. It writes lists on the Desktop.
 Copy wanted lines from antigravity-migrate-rename-suggested.txt into antigravity-migrate-rename.txt.
-Put paths you want to leave unchanged into antigravity-migrate-drop.txt, one Windows path per line.
+Put workspace paths you do not want attached into antigravity-migrate-drop.txt, one Windows path per line.
 Leave antigravity-migrate-keep.txt alone. Those are missing copies, worktrees, and Antigravity internal folders.
 antigravity-migrate-pb.txt lists protobuf conversation files. This version does not modify them.
 
