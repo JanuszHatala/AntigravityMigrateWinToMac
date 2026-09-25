@@ -43,25 +43,43 @@ Drop `-Also` when every repository sits under the Windows profile. The CLI folde
 
 The zip starts with `manifest.json`: profile id, Windows source, path inside the zip, and the Mac path relative to the home directory. Extra `-Also` folders are stored under `also/` with no Mac path.
 
-Copy the zip to the Mac. `python3` is required (the same interpreter as preview).
+Copy the zip to the Mac, then follow [On the Mac after you copied the zip](#on-the-mac-after-you-copied-the-zip). `python3` is required to read the manifest (the same interpreter as preview).
+
+## On the Mac after you copied the zip
+
+Use one script: `scripts/import-antigravity-mac.sh`. It reads the zip, extracts it to a temp folder, and moves each Windows tree to the Mac path from `manifest.json`. It does **not** rewrite Windows paths inside settings, SQLite, workspaces, or chat files. That is the preview and apply steps in this repo.
+
+**Prerequisites.** Quit Antigravity IDE and Antigravity 2.0 on the Mac (Cmd+Q). Confirm neither is running in Activity Monitor. Both apps write `~/.gemini`.
+
+Clone this repo once, or `cd` to an existing clone:
 
 ```bash
-bash /path/to/AntigravityMigrateWinToMac/scripts/import-antigravity-mac.sh --zip /Users/MAC_USER/Desktop/antigravity-migrate.zip
+git clone https://github.com/JanuszHatala/AntigravityMigrateWinToMac.git /Users/MAC_USER/AntigravityMigrateWinToMac
+cd /Users/MAC_USER/AntigravityMigrateWinToMac
+bash /Users/MAC_USER/AntigravityMigrateWinToMac/scripts/import-antigravity-mac.sh \
+  --zip /Users/MAC_USER/Desktop/antigravity-migrate.zip \
+  --move-aside
 ```
+
+Replace `MAC_USER` and the zip path with yours. `--zip` must be an absolute path.
+
+**`--move-aside` (recommended when you already use Antigravity on the Mac).** This is the backup step. For each destination that already exists, the script renames the whole folder or file to `name.mac-before-migrate` beside the original name. Nothing is deleted. Then it places the Windows copy from the zip.
+
+**Without `--move-aside`.** If any destination already exists, the script exits with an error and changes nothing under `$HOME`. It never copies into or merges with a live Mac profile.
 
 | Parameter | Meaning |
 | --- | --- |
-| `--zip` | Required absolute path of the zip. |
+| `--zip` | Required absolute path of the zip from the Windows export. |
 | `--profile` | `ide`, `app`, `gemini`, or `cli`. Repeat to select more than one. Default: every profile in the manifest. |
 | `-n`, `--dry-run` | Print the planned copies. Writes nothing under `$HOME`. |
-| `--move-aside` | If a destination already exists, rename that whole folder or file to `name.mac-before-migrate`, then place the Windows copy. |
-| `--also-to ID=ABSOLUTE_PATH` | Place one `also/` folder at that exact path. `ID` is `also-1`, `also-2`, and so on, in the `-Also` order. |
+| `--move-aside` | Rename existing destinations to `name.mac-before-migrate`, then place the Windows copy. |
+| `--also-to ID=ABSOLUTE_PATH` | Only if you used `-Also` on Windows. Place one `also/` folder at that exact path. `ID` is `also-1`, `also-2`, and so on, in the `-Also` order. Repeat for each extra folder. There is no default Projects folder. |
 
-If a destination already exists and you omit `--move-aside`, the script exits and leaves the Mac files alone. It does not copy into a live folder.
+Extra `-Also` folders stay in the zip unless you pass `--also-to`. The script prints the Windows path and `also/<n>` for each one left behind. You can copy those repositories yourself and pass the same pair to preview as `--also 'D:\work=/Users/MAC_USER/work'`.
 
-`-Also` folders are left in the zip. The script prints the Windows path and the `also/<n>` path. Copy those repositories to the Mac folders you want, then pass the same pair to preview as `--also 'D:\work=/Users/MAC_USER/work'`. `--also-to` uses only a path you type. There is no default Projects folder.
+### After import
 
-Quit both apps on the Mac before import. They both write `~/.gemini`.
+`cd` into this tool folder, activate the venv from [Preview](#preview) if needed, then run `python3 -m antigravity_mac_migrate auto` (preview) and the same command with `--renames`, `--drop`, and `--apply`. See [Preview](#preview) and [Apply](#apply).
 
 ### Copy by hand
 

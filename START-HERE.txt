@@ -13,14 +13,23 @@ Drop -Also when you have no folder outside the Windows profile. D:\work is an ex
 The CLI tree is included only when its folder exists.
 Parameter details are in README.md under "Scripts".
 
-Copy the zip to the Mac. From any folder:
+On the Mac after you copied the zip (full detail in README.md under that heading):
 
-bash /path/to/AntigravityMigrateWinToMac/scripts/import-antigravity-mac.sh --zip /Users/MAC_USER/Desktop/antigravity-migrate.zip
+Quit Antigravity IDE and Antigravity 2.0 first (Cmd+Q). Activity Monitor: neither app should be running.
 
-Add --move-aside if a destination is already there. The script renames that whole folder to name.mac-before-migrate and then places the Windows copy.
-Without that flag it stops, so it never copies into a live Mac profile. -n prints the plan and writes nothing.
-Extra -Also folders stay in the zip. The script prints them and does not pick a Projects folder.
-Copy those yourself, then use --also on the preview command below. Check each placement with the commands in README.md under "Check each placement".
+One script places the Windows trees. It does not rewrite paths inside them. Preview and apply below do that.
+
+git clone https://github.com/JanuszHatala/AntigravityMigrateWinToMac.git /Users/MAC_USER/AntigravityMigrateWinToMac
+cd /Users/MAC_USER/AntigravityMigrateWinToMac
+bash /Users/MAC_USER/AntigravityMigrateWinToMac/scripts/import-antigravity-mac.sh --zip /Users/MAC_USER/Desktop/antigravity-migrate.zip --move-aside
+
+--move-aside is the backup when Mac data already exists: each existing destination is renamed to name.mac-before-migrate (not deleted), then the Windows copy is placed.
+Without --move-aside, an existing destination is an error and $HOME is left unchanged.
+-n prints the plan and writes nothing.
+--also-to ID=ABSOLUTE_PATH only if you used -Also on Windows (also-1, also-2, ... in order). Otherwise extra folders stay in the zip; use --also on preview with the same path pair.
+Check placements: README.md under "Check each placement".
+
+After import: cd into this tool folder and run preview, then apply (README.md Preview and Apply).
 
 You are in the right folder when this file sits next to a folder named antigravity_mac_migrate.
 Do not open antigravity_mac_migrate to run anything. That inner folder is only the program code.
