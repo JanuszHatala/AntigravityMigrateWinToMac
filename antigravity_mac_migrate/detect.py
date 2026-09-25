@@ -12,7 +12,12 @@ from antigravity_mac_migrate.files_rewrite import iter_protobuf_files, iter_text
 from antigravity_mac_migrate.mapping import default_python
 from antigravity_mac_migrate.paths import extract_windows_paths, suggest_roots
 from antigravity_mac_migrate.profiles import ResolvedProfile
-from antigravity_mac_migrate.sqlite_rewrite import _quote_ident, is_sqlite_file, iter_sqlite_files
+from antigravity_mac_migrate.sqlite_rewrite import (
+    _quote_ident,
+    format_skipped_sqlite,
+    is_sqlite_file,
+    iter_sqlite_files,
+)
 from antigravity_mac_migrate.workspace_relink import (
     file_uri_to_native,
     read_workspace_json,
@@ -31,6 +36,7 @@ class ScanResult:
     files_with_windows: list[Path] = field(default_factory=list)
     protobuf_files: list[Path] = field(default_factory=list)
     skipped_binary: list[str] = field(default_factory=list)
+    skipped_sqlite: list[str] = field(default_factory=list)
 
 
 def scan_profiles(profiles: list[ResolvedProfile]) -> ScanResult:
@@ -93,18 +99,35 @@ def scan_profiles(profiles: list[ResolvedProfile]) -> ScanResult:
 
 def _scan_sqlite(db_path: Path, result: ScanResult) -> None:
     if not is_sqlite_file(db_path):
+        result.skipped_sqlite.append(
+            format_skipped_sqlite(
+                db_path,
+                "skipped during preview: empty file or not a SQLite database",
+            )
+        )
         return
     try:
         conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-    except sqlite3.Error:
+    except sqlite3.Error as exc:
+        result.skipped_sqlite.append(
+            format_skipped_sqlite(db_path, f"skipped during preview: {exc}")
+        )
         return
     try:
-        tables = [
-            row[0]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
+        try:
+            tables = [
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            ]
+        except sqlite3.DatabaseError as exc:
+            result.skipped_sqlite.append(
+                format_skipped_sqlite(
+                    db_path, f"skipped during preview: database unreadable: {exc}"
+                )
             )
-        ]
+            return
         for table in tables:
             if str(table).startswith("sqlite_"):
                 continue

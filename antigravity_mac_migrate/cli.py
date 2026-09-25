@@ -32,6 +32,7 @@ MISSING = "antigravity-migrate-missing.txt"
 OUTSIDE = "antigravity-migrate-outside-home.txt"
 PB = "antigravity-migrate-pb.txt"
 SKIPPED = "antigravity-migrate-skipped-binary.txt"
+SKIPPED_SQLITE = "antigravity-migrate-skipped-sqlite.txt"
 NOT_ATTACHED = "antigravity-migrate-not-attached.txt"
 REPORT = "antigravity-migrate-report.json"
 STILL = "antigravity-migrate-still-windows.txt"
@@ -275,6 +276,7 @@ def cmd_auto(args: argparse.Namespace) -> int:
         + "\n",
         encoding="utf-8",
     )
+    _write_skipped_sqlite(reports / SKIPPED_SQLITE, scan.skipped_sqlite)
 
     internal = len([line for line in plan.keep if line.startswith("[antigravity-internal]") or line.startswith("[worktree]")])
     print()
@@ -287,9 +289,24 @@ def cmd_auto(args: argparse.Namespace) -> int:
     print(f"Outside {plan.windows_home} and the --also folders: {len(plan.outside_home)}")
     print(f"Protobuf .pb files left byte-identical: {len(scan.protobuf_files)}")
     print(f"Binary SQLite cells left unchanged: {len(scan.skipped_binary)}")
+    print(f"Unreadable SQLite databases skipped: {len(scan.skipped_sqlite)}")
+    if scan.skipped_sqlite:
+        print(f"  See {reports / SKIPPED_SQLITE}")
     print()
     print(f"Reports ({reports}):")
-    for name in (READY, RENAME_SUGGESTED, RENAME, KEEP, DROP, MISSING, OUTSIDE, PB, SKIPPED, PATH_MAP_NAME):
+    for name in (
+        READY,
+        RENAME_SUGGESTED,
+        RENAME,
+        KEEP,
+        DROP,
+        MISSING,
+        OUTSIDE,
+        PB,
+        SKIPPED,
+        SKIPPED_SQLITE,
+        PATH_MAP_NAME,
+    ):
         print(f"  {reports / name}")
 
     if not args.apply:
@@ -317,6 +334,7 @@ def cmd_auto(args: argparse.Namespace) -> int:
     )
     report_path = reports / REPORT
     write_report(report, report_path)
+    _write_skipped_sqlite(reports / SKIPPED_SQLITE, report.skipped_sqlite)
     attached = [item for item in report.relink.items if item.status in {"renamed", "unchanged-id"}]
     not_attached = [
         item for item in report.relink.items if item.status not in {"renamed", "unchanged-id", "skip"}
@@ -342,6 +360,9 @@ def cmd_auto(args: argparse.Namespace) -> int:
     if report.skipped_binary:
         print("  Those cells still hold their original bytes. A sidebar index stored as protobuf was not remapped.")
         print(f"  See {reports / SKIPPED}")
+    print(f"Unreadable SQLite databases skipped: {len(report.skipped_sqlite)}")
+    if report.skipped_sqlite:
+        print(f"  Re-copy those files from Windows if chats are missing. See {reports / SKIPPED_SQLITE}")
     print(f"Skills: {len(report.skills)}")
     print()
     print("Sign in on the Mac for auth only. Chat history is local and is not synced by login.")
@@ -368,6 +389,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
     print("The full workspace list is not printed here, so it cannot flood the window.")
     print(f"Protobuf .pb files left unread: {len(scan.protobuf_files)}")
     print(f"Binary SQLite cells skipped: {len(scan.skipped_binary)}")
+    print(f"Unreadable SQLite databases skipped: {len(scan.skipped_sqlite)}")
     print()
     if scan.python_hits:
         print("Python-looking Windows paths:")
@@ -461,6 +483,7 @@ def cmd_apply(args: argparse.Namespace) -> int:
     print(f"  path-encoded folders renamed: {len(report.projects)}")
     print(f"  protobuf .pb files left byte-identical: {len(report.protobuf_files)}")
     print(f"  binary SQLite cells left unchanged: {len(report.skipped_binary)}")
+    print(f"  unreadable SQLite databases skipped: {len(report.skipped_sqlite)}")
     print(f"  skills visible: {len(report.skills)}")
     if report.warnings:
         print("  warnings:")
@@ -497,6 +520,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
     print(f"Binary SQLite cells not rewritten: {len(scan.skipped_binary)}")
     if scan.skipped_binary:
         print("  Paths inside those cells were not remapped.")
+    print(f"Unreadable SQLite databases skipped: {len(scan.skipped_sqlite)}")
     leftover = scan.windows_paths
     print(f"Windows paths still stored in text or SQLite: {len(leftover)}")
     status = 0
@@ -620,6 +644,20 @@ def _rewrite_keybindings(path: Path, *, dry_run: bool) -> int:
 
 def _ctrl_to_cmd(key: str) -> str:
     return key.replace("ctrl+", "cmd+").replace("Ctrl+", "cmd+").replace("CTRL+", "cmd+")
+
+
+def _write_skipped_sqlite(path: Path, lines: list[str]) -> None:
+    path.write_text(
+        "\n".join(
+            [
+                "# SQLite files that could not be read (empty, truncated, or corrupted).",
+                "# Preview and apply skip them instead of crashing. Re-copy from Windows if chats are missing.",
+                *lines,
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def _write_lines(path: Path, lines: list[str]) -> None:

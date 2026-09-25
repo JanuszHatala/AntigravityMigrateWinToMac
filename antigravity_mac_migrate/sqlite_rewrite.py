@@ -12,6 +12,7 @@ from antigravity_mac_migrate.files_rewrite import SKIP_DIR_NAMES
 from antigravity_mac_migrate.paths import PathRewriter
 
 SQLITE_MAGIC = b"SQLite format 3\x00"
+SQLITE_LIKE_SUFFIXES = (".vscdb", ".db")
 
 
 @dataclass
@@ -21,6 +22,7 @@ class SqliteRewriteStats:
     rows_changed: int = 0
     skipped_binary: int = 0
     skipped_binary_notes: list[str] = field(default_factory=list)
+    skipped_sqlite: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
 
@@ -42,6 +44,19 @@ def is_sqlite_file(path: Path) -> bool:
         return False
 
 
+def is_sqlite_like_path(path: Path) -> bool:
+    """True for readable SQLite files and for ``.vscdb`` / ``.db`` paths we should probe."""
+    if not path.is_file() or path.suffix.lower() == ".pb":
+        return False
+    if is_sqlite_file(path):
+        return True
+    return path.suffix.lower() in SQLITE_LIKE_SUFFIXES
+
+
+def format_skipped_sqlite(path: Path, reason: str) -> str:
+    return f"{path}\t{reason}"
+
+
 def iter_sqlite_files(roots: list[Path]) -> list[Path]:
     found: list[Path] = []
     seen: set[Path] = set()
@@ -56,7 +71,7 @@ def iter_sqlite_files(roots: list[Path]) -> list[Path]:
             if _skipped_dir(path) or path.suffix.lower() == ".pb":
                 continue
             key = path.resolve() if path.exists() else path
-            if key in seen or not is_sqlite_file(path):
+            if key in seen or not is_sqlite_like_path(path):
                 continue
             seen.add(key)
             found.append(path)
@@ -71,12 +86,17 @@ def checkpoint_and_copy(db_path: Path, backup_path: Path) -> None:
         side = Path(str(db_path) + suffix)
         if side.exists():
             shutil.copy2(side, Path(str(backup_path) + suffix))
-    if not db_path.exists():
+    if not db_path.exists() or not is_sqlite_file(db_path):
         return
-    conn = sqlite3.connect(str(db_path))
+    try:
+        conn = sqlite3.connect(str(db_path))
+    except sqlite3.DatabaseError:
+        return
     try:
         conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         conn.commit()
+    except sqlite3.DatabaseError:
+        pass
     finally:
         conn.close()
 
@@ -96,14 +116,32 @@ def rewrite_db(
     stats = SqliteRewriteStats(path=db_path)
     if not db_path.exists() or db_path.suffix.lower() == ".pb":
         return stats
-    conn = sqlite3.connect(str(db_path))
-    try:
-        tables = [
-            row[0]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
+    if not is_sqlite_file(db_path):
+        stats.skipped_sqlite.append(
+            format_skipped_sqlite(
+                db_path,
+                "not opened: empty file or not a SQLite database (no rewrite; re-copy from Windows if chats are missing)",
             )
-        ]
+        )
+        return stats
+    try:
+        conn = sqlite3.connect(str(db_path))
+    except sqlite3.DatabaseError as exc:
+        stats.skipped_sqlite.append(format_skipped_sqlite(db_path, f"not opened: {exc}"))
+        return stats
+    try:
+        try:
+            tables = [
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
+                )
+            ]
+        except sqlite3.DatabaseError as exc:
+            stats.skipped_sqlite.append(
+                format_skipped_sqlite(db_path, f"database unreadable: {exc}")
+            )
+            return stats
         for table in tables:
             if str(table).startswith("sqlite_"):
                 continue
@@ -113,9 +151,20 @@ def rewrite_db(
                 stats.warnings.append(f"{db_path} table {table}: {exc}")
         if not dry_run:
             conn.commit()
-            integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+            try:
+                integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+            except sqlite3.DatabaseError as exc:
+                stats.skipped_sqlite.append(
+                    format_skipped_sqlite(db_path, f"integrity_check failed: {exc}")
+                )
+                return stats
             if integrity != "ok":
-                raise RuntimeError(f"{db_path}: integrity_check failed: {integrity}")
+                stats.skipped_sqlite.append(
+                    format_skipped_sqlite(
+                        db_path, f"integrity_check failed: {integrity}"
+                    )
+                )
+                return stats
     finally:
         conn.close()
     return stats

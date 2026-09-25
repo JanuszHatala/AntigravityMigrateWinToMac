@@ -183,7 +183,10 @@ Open `migrate-work/` in the tool folder.
 | `antigravity-migrate-outside-home.txt` | Paths outside `--windows-home` and `--also` | Fix the mapping or ignore |
 | `antigravity-migrate-pb.txt` | Protobuf `.pb` files left byte-identical | No |
 | `antigravity-migrate-skipped-binary.txt` | SQLite cells that are not UTF-8 | No |
+| `antigravity-migrate-skipped-sqlite.txt` | Empty or corrupted `.vscdb` / `.db` files skipped during preview | No |
 | `path-map.json` | Prefixes used for this preview | Advanced use |
+
+Malformed or unreadable SQLite files are skipped during preview instead of aborting. If chats are missing after apply, re-copy that profile tree from Windows and run preview again.
 
 Tags in `antigravity-migrate-keep.txt`:
 

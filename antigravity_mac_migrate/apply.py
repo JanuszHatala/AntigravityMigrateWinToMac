@@ -35,6 +35,7 @@ class ApplyReport:
     backup_dirs: list[str] = field(default_factory=list)
     protobuf_files: list[str] = field(default_factory=list)
     skipped_binary: list[str] = field(default_factory=list)
+    skipped_sqlite: list[str] = field(default_factory=list)
 
 
 def apply_map(
@@ -94,6 +95,12 @@ def apply_map(
                 f"{db}: {stats.skipped_binary} binary SQLite cell(s) left unchanged. "
                 "Paths inside those cells were not rewritten. If a sidebar index is in "
                 "this list, those titles were not remapped."
+            )
+        if stats.skipped_sqlite:
+            report.skipped_sqlite.extend(stats.skipped_sqlite)
+            report.warnings.append(
+                f"{db}: SQLite database was not rewritten (malformed or unreadable). "
+                "See antigravity-migrate-skipped-sqlite.txt. Re-copy that file from Windows if chats are missing."
             )
         report.warnings.extend(stats.warnings)
 
@@ -320,6 +327,7 @@ def write_report(report: ApplyReport, path: Path) -> None:
         "skills": report.skills,
         "protobuf_files": report.protobuf_files,
         "skipped_binary": report.skipped_binary,
+        "skipped_sqlite": report.skipped_sqlite,
         "warnings": report.warnings,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
